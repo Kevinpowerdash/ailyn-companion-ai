@@ -1,1 +1,4 @@
 project_id = "tkaiuepccvwztkzpbjsr"
+
+[functions.chat-with-ailyn]
+verify_jwt = false
