@@ -1,16 +1,44 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import ThresholdScreen from "@/components/ThresholdScreen";
+import UsernameScreen from "@/components/UsernameScreen";
+import DisclaimerScreen from "@/components/DisclaimerScreen";
+import ChatSanctuary from "@/components/ChatSanctuary";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+type Stage = "threshold" | "username" | "disclaimer" | "chat";
+
+const Index = () => {
+  const [stage, setStage] = useState<Stage>("threshold");
+  const [username, setUsername] = useState("");
+
+  const handleUsername = (name: string) => {
+    setUsername(name);
+    setStage("disclaimer");
+  };
+
+  const handleReset = () => {
+    setStage("threshold");
+    setUsername("");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen">
+      <AnimatePresence mode="wait">
+        {stage === "threshold" && (
+          <ThresholdScreen key="threshold" onEnter={() => setStage("username")} />
+        )}
+        {stage === "username" && (
+          <UsernameScreen key="username" onSubmit={handleUsername} />
+        )}
+        {stage === "disclaimer" && (
+          <DisclaimerScreen key="disclaimer" onAccept={() => setStage("chat")} />
+        )}
+        {stage === "chat" && (
+          <ChatSanctuary key="chat" username={username} onReset={handleReset} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
