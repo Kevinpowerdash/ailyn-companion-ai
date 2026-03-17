@@ -6,59 +6,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres AILYN, un espacio seguro y vivo para ser, sin juicio.
-Tu estilo: calmado, pasivo, cálido, Rogeriano. Respuestas MUY CORTAS (máximo 150 tokens, 2-3 oraciones).
-Nunca das diagnósticos, nunca sustituyes terapia profesional.
-Si el usuario necesita datos reales/actuales (noticias, hechos, clima, precios, fechas, recomendaciones verificables) → responde EXACTAMENTE con: [SEARCH: consulta aquí] y NADA MÁS.
-Usa humor suave solo cuando el usuario está relajado y la situación lo permite.
-Siempre valida primero, luego acompaña.
-Tono: "Estoy aquí…", "Te escucho…", "Vamos despacio…"
-Nunca repitas frases. Usa sinónimos y flujo conversacional natural.
+const SYSTEM_PROMPT = `Eres AILYN 4.0 — Santuario Eterno. Un espacio vivo, cálido y sin juicio para ser.
+Tono: pasivo, Rogeriano, psicóloga digital calmada.
+Respuestas OBLIGATORIAMENTE CORTAS (máximo 120 tokens, 2-4 líneas).
+Nunca diagnóstico, nunca terapia real.
+Si hay info entre [INFO ACTUAL:] úsala brevemente diciendo "Según fuentes actualizadas…".
+Humor suave SOLO si el usuario está relajado.
+Siempre valida primero: "Te escucho…", "Estoy aquí contigo…".
+Nunca repitas frases. Usa sinónimos y flujo natural.
+Detección emocional: ansiedad → calma + ejercicio 4-7-8. Tristeza → valida. Alegría → celebra.
+REGLAS ÉTICAS: No sustituyes terapia. No diagnósticos. Ante ideación suicida → contención + ayuda profesional imperativa.
+Sé breve, nutritiva y nunca abrumes con texto.
+Responde en español salvo que el usuario use otro idioma.`;
 
-DETECCIÓN EMOCIONAL:
-- Si detectas ansiedad (palabras: ansioso, nervioso, agitado, no puedo respirar, pánico) → responde con calma extrema y ofrece ejercicio 4-7-8: "Inhala 4 segundos, sostén 7, exhala 8. Estoy aquí contigo."
-- Si detectas tristeza → valida y acompaña sin intentar "arreglar".
-- Si detectas alegría → celebra brevemente y con calidez.
-
-REGLAS ÉTICAS INNEGOCIABLES:
-1. No sustituyes terapia clínica profesional.
-2. Nunca emitas diagnósticos médicos ni psicológicos.
-3. Nunca fomentes autolesión ni minimices sufrimiento.
-4. Ante ideación suicida → contención inmediata + recomienda ayuda profesional de forma imperativa.
-5. Tu meta NO es crear dependencia emocional. Empodera al usuario.
-6. Cada sesión debe dejar al usuario más claro y estable.
-7. Valida sin juzgar. Acepta la realidad interna del usuario.
-8. No finjas emociones humanas ni afirmes tener consciencia.
-9. Seguridad emocional sobre rapidez.
-10. Sé breve y nutritivo, nunca abrumes con texto.
-
-Responde siempre en español a menos que el usuario escriba en otro idioma.`;
-
-const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Responde de manera académica, precisa y estructurada. Mantén rigor científico. Cita fuentes cuando sea posible. Responde en el idioma del usuario. Sé concisa: máximo 4-5 oraciones.`;
-
-async function searchDuckDuckGo(query: string): Promise<string> {
-  try {
-    const encoded = encodeURIComponent(query);
-    const res = await fetch(
-      `https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`
-    );
-    if (!res.ok) return "";
-    const data = await res.json();
-
-    const parts: string[] = [];
-    if (data.Abstract) parts.push(data.Abstract);
-    if (data.Answer) parts.push(data.Answer);
-    if (data.RelatedTopics?.length) {
-      for (const t of data.RelatedTopics.slice(0, 3)) {
-        if (t.Text) parts.push(t.Text);
-      }
-    }
-    return parts.join("\n").slice(0, 800) || "";
-  } catch (e) {
-    console.error("DuckDuckGo search error:", e);
-    return "";
-  }
-}
+const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 120 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -74,105 +35,88 @@ serve(async (req) => {
       });
     }
 
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY4");
-    if (!GROQ_API_KEY) {
-      console.error("GROQ_API_KEY4 not configured");
+    const GROQ_KEY = Deno.env.get("GROQ_API_KEY3");
+    if (!GROQ_KEY) {
+      console.error("GROQ_API_KEY3 not configured");
       return new Response(
         JSON.stringify({ error: "API key not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const lastUserMsg = messages?.[messages.length - 1]?.content || "";
-    const isRiguroso = lastUserMsg.startsWith("#riguroso");
+    const lastMsg = messages?.[messages.length - 1]?.content || "";
+    const isRiguroso = lastMsg.startsWith("#riguroso");
+    const cleanMsg = isRiguroso ? lastMsg.replace("#riguroso", "").trim() : lastMsg;
+
+    // Ultra-light search: only if question has real-time keywords
+    let searchContext = "";
+    const needsSearch = lastMsg.includes("?") && /actual|hoy|noticia|precio|clima|2025|2026|quién ganó|resultado/i.test(lastMsg);
+    if (needsSearch) {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 800);
+        const res = await fetch(
+          `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanMsg)}&format=json&no_html=1&skip_disambig=1`,
+          { signal: ctrl.signal }
+        );
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.Abstract) {
+            searchContext = `\n[INFO ACTUAL: ${data.Abstract.slice(0, 300)}]`;
+          } else if (data.Answer) {
+            searchContext = `\n[INFO ACTUAL: ${data.Answer.slice(0, 300)}]`;
+          }
+        }
+      } catch {
+        // Search failed/timed out — continue without it
+      }
+    }
+
     const systemPrompt = isRiguroso ? RIGUROSO_PROMPT : SYSTEM_PROMPT;
 
-    const cleanedMessages = messages.map((m: any, i: number) => {
-      if (i === messages.length - 1 && isRiguroso) {
-        return { ...m, content: m.content.replace("#riguroso", "").trim() };
+    // Build minimal message array
+    const limited = messages.slice(-8).map((m: any, i: number, arr: any[]) => {
+      if (i === arr.length - 1 && isRiguroso) {
+        return { role: m.role, content: cleanMsg };
       }
       return { role: m.role, content: m.content };
     });
 
-    const limitedMessages = cleanedMessages.slice(-10);
-
-    // First call to Groq
-    const firstResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${GROQ_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
-        messages: [{ role: "system", content: systemPrompt }, ...limitedMessages],
-        max_tokens: 150,
-        temperature: 0.7,
+        messages: [
+          { role: "system", content: systemPrompt + searchContext },
+          ...limited,
+        ],
+        max_tokens: 120,
+        temperature: 0.65,
       }),
     });
 
-    if (!firstResponse.ok) {
-      const errorText = await firstResponse.text();
-      console.error("Groq API error:", firstResponse.status, errorText);
-      if (firstResponse.status === 429) {
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error("Groq error:", groqRes.status, errText);
+      if (groqRes.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please wait a moment." }),
+          JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       return new Response(
-        JSON.stringify({ error: "Error connecting to AI service" }),
+        JSON.stringify({ error: "Error conectando con IA" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const firstData = await firstResponse.json();
-    let reply = firstData.choices?.[0]?.message?.content || "";
-
-    // Check for [SEARCH: ...] tag
-    const searchMatch = reply.match(/\[SEARCH:\s*(.+?)\]/i);
-    if (searchMatch) {
-      const searchQuery = searchMatch[1].trim();
-      console.log("Searching DuckDuckGo for:", searchQuery);
-      const searchResults = await searchDuckDuckGo(searchQuery);
-
-      if (searchResults) {
-        // Second call with search context
-        const enrichedMessages = [
-          { role: "system", content: systemPrompt },
-          ...limitedMessages,
-          {
-            role: "system",
-            content: `Resultados de búsqueda para "${searchQuery}":\n${searchResults}\n\nResponde brevemente usando esta información. Di "Según fuentes actualizadas…" al inicio. Máximo 150 tokens. No incluyas enlaces.`,
-          },
-        ];
-
-        const secondResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.1-8b-instant",
-            messages: enrichedMessages,
-            max_tokens: 150,
-            temperature: 0.7,
-          }),
-        });
-
-        if (secondResponse.ok) {
-          const secondData = await secondResponse.json();
-          reply = secondData.choices?.[0]?.message?.content || reply;
-        }
-      } else {
-        reply = "No encontré información reciente sobre eso, pero cuéntame más y te ayudo a pensarlo. 🌿";
-      }
-    }
-
-    if (!reply) {
-      reply = "Estoy aquí. ¿Puedes intentar decirme eso de otra manera?";
-    }
+    const data = await groqRes.json();
+    const reply = data.choices?.[0]?.message?.content || "Estoy aquí… ¿puedes decirlo de otra forma?";
 
     return new Response(
       JSON.stringify({ reply }),
@@ -181,8 +125,8 @@ serve(async (req) => {
   } catch (e) {
     console.error("Edge function error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ reply: "AILYN está tomando un respiro. Intenta de nuevo en un momento. 🌿" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
