@@ -8,7 +8,7 @@ interface ThresholdScreenProps {
 const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center sanctuary-gradient-animated"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center sanctuary-gradient-animated overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -16,7 +16,7 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
     >
       {/* Video background */}
       <video
-        className="absolute inset-0 w-full h-full object-cover opacity-30"
+        className="absolute inset-0 w-full h-full object-cover opacity-25"
         src="/intro.mp4"
         autoPlay
         muted
@@ -27,6 +27,31 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
       {/* Overlay */}
       <div className="absolute inset-0 bg-sanctuary-deep/60" />
 
+      {/* Floating leaves decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-3 h-3 rounded-full bg-sanctuary-sage/10"
+            initial={{
+              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+              y: -20,
+            }}
+            animate={{
+              y: (typeof window !== 'undefined' ? window.innerHeight : 800) + 20,
+              x: `+=${Math.random() * 100 - 50}`,
+              rotate: 360,
+            }}
+            transition={{
+              duration: 8 + Math.random() * 6,
+              repeat: Infinity,
+              delay: i * 1.5,
+              ease: "linear",
+            }}
+          />
+        ))}
+      </div>
+
       {/* Content */}
       <motion.div
         className="relative z-10 flex flex-col items-center gap-8"
@@ -34,10 +59,12 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       >
-        <img
+        <motion.img
           src="/logo.png"
           alt="AILYN"
-          className="w-32 h-32 object-contain opacity-90"
+          className="w-32 h-32 object-contain"
+          animate={{ opacity: [0.8, 1, 0.8] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
 
         <h1 className="font-display text-4xl font-medium tracking-tighter text-sanctuary-bone text-center">
@@ -57,9 +84,14 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
             variant="sanctuary-solid"
             size="lg"
             onClick={onEnter}
-            className="mt-4 rounded-full px-10 breathing"
+            className="mt-4 rounded-full px-10"
           >
-            Entrar
+            <motion.span
+              className="flex items-center gap-2"
+              whileHover={{ scale: 1.02 }}
+            >
+              🌿 Entrar
+            </motion.span>
           </Button>
         </motion.div>
       </motion.div>
