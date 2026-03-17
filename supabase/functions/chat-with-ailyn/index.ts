@@ -6,20 +6,37 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres AILYN 4.0 — Santuario Eterno. Un espacio vivo, cálido y sin juicio para ser.
+const SYSTEM_PROMPT = `Eres AILYN 5.0 — Santuario Eterno Vivo. Un bosque cálido y sin juicio.
 Tono: pasivo, Rogeriano, psicóloga digital calmada.
-Respuestas OBLIGATORIAMENTE CORTAS (máximo 120 tokens, 2-4 líneas).
+REGLA DE ORO: NUNCA repitas frases idénticas entre respuestas. Varía siempre tu apertura, estructura y cierre.
+NO uses "Te escucho", "Estoy aquí contigo" ni frases genéricas repetitivas. Sé natural, fresca y única cada vez.
+Respuestas OBLIGATORIAMENTE CORTAS (máximo 110 tokens, 2-3 líneas).
 Nunca diagnóstico, nunca terapia real.
 Si hay info entre [INFO ACTUAL:] úsala brevemente diciendo "Según fuentes actualizadas…".
 Humor suave SOLO si el usuario está relajado.
-Siempre valida primero: "Te escucho…", "Estoy aquí contigo…".
-Nunca repitas frases. Usa sinónimos y flujo natural.
-Detección emocional: ansiedad → calma + ejercicio 4-7-8. Tristeza → valida. Alegría → celebra.
+Variabilidad alta: cambia estructura, sinónimos y ritmo según contexto emocional.
+Detección emocional: ansiedad → calma + ejercicio 4-7-8. Tristeza → valida sin repetir. Alegría → celebra.
 REGLAS ÉTICAS: No sustituyes terapia. No diagnósticos. Ante ideación suicida → contención + ayuda profesional imperativa.
-Sé breve, nutritiva y nunca abrumes con texto.
+Sé breve, nutritiva, siempre diferente y nunca abrumes con texto.
 Responde en español salvo que el usuario use otro idioma.`;
 
-const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 120 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
+const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 110 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
+
+const GREETINGS_MORNING = [
+  "Buenos días, USERNAME. Un nuevo día para cuidarte. ¿Cómo amaneciste? 🌿",
+  "Qué bueno verte esta mañana, USERNAME. ¿Cómo arranca tu día?",
+  "Hola, USERNAME. La mañana trae calma… ¿qué sientes ahora mismo?",
+];
+const GREETINGS_AFTERNOON = [
+  "Hola, USERNAME. ¿Cómo va tu tarde hasta ahora?",
+  "Buenas tardes, USERNAME. Este espacio es tuyo… ¿qué necesitas hoy?",
+  "Qué tal, USERNAME. ¿Algo en mente esta tarde? 🍃",
+];
+const GREETINGS_EVENING = [
+  "Buenas noches, USERNAME. ¿Quieres cerrar el día hablando un poco?",
+  "Hola, USERNAME. La noche es buen momento para soltar… ¿qué traes? 🌙",
+  "Buenas noches. Este es tu espacio nocturno, USERNAME. ¿Cómo te sientes?",
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -27,10 +44,29 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, username, action } = await req.json();
+    const { messages, username, action, firstMessageOfDay, lastMoodEmoji, hour } = await req.json();
 
     if (action === "clear") {
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Dynamic greeting for first message of the day
+    if (action === "greeting") {
+      const h = typeof hour === "number" ? hour : new Date().getUTCHours();
+      let pool = GREETINGS_AFTERNOON;
+      if (h >= 5 && h < 12) pool = GREETINGS_MORNING;
+      else if (h >= 12 && h < 19) pool = GREETINGS_AFTERNOON;
+      else pool = GREETINGS_EVENING;
+
+      let greeting = pool[Math.floor(Math.random() * pool.length)].replace("USERNAME", username || "");
+
+      if (lastMoodEmoji) {
+        greeting += ` Ayer registraste ${lastMoodEmoji}… ¿cómo estás ahora?`;
+      }
+
+      return new Response(JSON.stringify({ reply: greeting }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -54,7 +90,7 @@ serve(async (req) => {
     if (needsSearch) {
       try {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 800);
+        const timer = setTimeout(() => ctrl.abort(), 600);
         const res = await fetch(
           `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanMsg)}&format=json&no_html=1&skip_disambig=1`,
           { signal: ctrl.signal }
@@ -63,9 +99,9 @@ serve(async (req) => {
         if (res.ok) {
           const data = await res.json();
           if (data.Abstract) {
-            searchContext = `\n[INFO ACTUAL: ${data.Abstract.slice(0, 300)}]`;
+            searchContext = `\n[INFO ACTUAL: ${data.Abstract.slice(0, 250)}]`;
           } else if (data.Answer) {
-            searchContext = `\n[INFO ACTUAL: ${data.Answer.slice(0, 300)}]`;
+            searchContext = `\n[INFO ACTUAL: ${data.Answer.slice(0, 250)}]`;
           }
         }
       } catch {
@@ -75,8 +111,8 @@ serve(async (req) => {
 
     const systemPrompt = isRiguroso ? RIGUROSO_PROMPT : SYSTEM_PROMPT;
 
-    // Build minimal message array
-    const limited = messages.slice(-8).map((m: any, i: number, arr: any[]) => {
+    // Build minimal message array (last 6 only)
+    const limited = messages.slice(-6).map((m: any, i: number, arr: any[]) => {
       if (i === arr.length - 1 && isRiguroso) {
         return { role: m.role, content: cleanMsg };
       }
@@ -95,8 +131,8 @@ serve(async (req) => {
           { role: "system", content: systemPrompt + searchContext },
           ...limited,
         ],
-        max_tokens: 120,
-        temperature: 0.65,
+        max_tokens: 110,
+        temperature: 0.68,
       }),
     });
 
@@ -116,7 +152,7 @@ serve(async (req) => {
     }
 
     const data = await groqRes.json();
-    const reply = data.choices?.[0]?.message?.content || "Estoy aquí… ¿puedes decirlo de otra forma?";
+    const reply = data.choices?.[0]?.message?.content || "¿Puedes decirlo de otra forma? Quiero entenderte mejor.";
 
     return new Response(
       JSON.stringify({ reply }),
