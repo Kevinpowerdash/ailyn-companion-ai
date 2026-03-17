@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, RotateCcw, Mic, Volume2, VolumeX, Download, Wind, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowUp, RotateCcw, Mic, Volume2, VolumeX, Download, MessageCircle, Sparkles, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ChatMessage from "./ChatMessage";
 import BreathingIndicator from "./BreathingIndicator";
 import LeafParticles from "./LeafParticles";
 import VoiceWave from "./VoiceWave";
-import MoodTracker from "./MoodTracker";
+import MoodTracker, { getLastMoodEmoji } from "./MoodTracker";
+import { ThemeSwitcherUI } from "./ThemeSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,24 +19,32 @@ interface ChatSanctuaryProps {
 }
 
 const quickPrompts = [
-  { label: "Estoy ansioso/a", emoji: "😮‍💨", message: "Estoy sintiéndome ansioso/a y necesito calmarme" },
+  { label: "Ansioso/a", emoji: "😮‍💨", message: "Estoy sintiéndome ansioso/a y necesito calmarme" },
   { label: "Desahogarme", emoji: "💭", message: "Necesito desahogarme, ¿puedo contarte algo?" },
   { label: "Respiración 4-7-8", emoji: "🌬️", message: "Guíame en un ejercicio de respiración 4-7-8" },
-  { label: "Reflexión del día", emoji: "🌱", message: "Dame una pequeña reflexión para hoy" },
+  { label: "Reflexión", emoji: "🌱", message: "Dame una pequeña reflexión para hoy" },
   { label: "Pensar en voz alta", emoji: "🧠", message: "Quiero pensar en voz alta sobre algo" },
+  { label: "Gratitud", emoji: "🙏", message: "Quiero practicar gratitud rápida" },
+  { label: "Cierre del día", emoji: "🌙", message: "Ayúdame a cerrar mi día con calma" },
 ];
 
 const placeholders = [
   "Comparte lo que sientes...",
-  "Estoy aquí para escucharte...",
-  "¿Qué tienes en mente?",
-  "Este es tu espacio seguro...",
+  "Este espacio es tuyo...",
+  "¿Qué ronda por tu mente?",
+  "Escríbeme lo que necesites...",
+  "Sin juicio, sin prisa...",
+  "Aquí puedes soltar todo...",
+  "¿Cómo estás realmente?",
+  "Tu ritmo, tu espacio...",
+  "Cuéntame, sin filtros...",
+  "¿Qué necesitas ahora mismo?",
+  "Dime lo que quieras...",
+  "Un paso a la vez...",
 ];
 
 const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: `Estoy aquí, ${username}. ¿Qué tienes en mente? 🌿` },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -44,9 +53,35 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [showCheckin, setShowCheckin] = useState(false);
+  const [greetingLoaded, setGreetingLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Fetch dynamic greeting on mount
+  useEffect(() => {
+    if (greetingLoaded) return;
+    const fetchGreeting = async () => {
+      try {
+        const lastMood = getLastMoodEmoji(username);
+        const { data, error } = await supabase.functions.invoke("chat-with-ailyn", {
+          body: {
+            action: "greeting",
+            username,
+            hour: new Date().getHours(),
+            lastMoodEmoji: lastMood,
+          },
+        });
+        if (error) throw error;
+        const reply = data?.reply || `Hola, ${username}. ¿Cómo estás? 🌿`;
+        setMessages([{ role: "assistant", content: reply }]);
+      } catch {
+        setMessages([{ role: "assistant", content: `Hola, ${username}. ¿Cómo va todo? 🌿` }]);
+      }
+      setGreetingLoaded(true);
+    };
+    fetchGreeting();
+  }, [username, greetingLoaded]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -56,23 +91,32 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setPlaceholderIdx((i) => (i + 1) % placeholders.length);
-    }, 5000);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Daily check-in (once per day)
+  // Daily check-in
   useEffect(() => {
-    const today = new Date().toDateString();
     const lastCheckin = localStorage.getItem("ailyn_checkin_date");
-    if (lastCheckin !== today) {
-      const timer = setTimeout(() => setShowCheckin(true), 2500);
+    if (!lastCheckin) return;
+    const diff = Date.now() - new Date(lastCheckin).getTime();
+    if (diff > 18 * 60 * 60 * 1000) {
+      const timer = setTimeout(() => setShowCheckin(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Show check-in if never done
+  useEffect(() => {
+    if (!localStorage.getItem("ailyn_checkin_date")) {
+      const timer = setTimeout(() => setShowCheckin(true), 3000);
       return () => clearTimeout(timer);
     }
   }, []);
 
   const dismissCheckin = () => {
     setShowCheckin(false);
-    localStorage.setItem("ailyn_checkin_date", new Date().toDateString());
+    localStorage.setItem("ailyn_checkin_date", new Date().toISOString());
   };
 
   const speak = useCallback((text: string) => {
@@ -92,6 +136,9 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     const msgText = (text || input).trim();
     if (!msgText || isLoading) return;
 
+    // Stop TTS if user sends while speaking
+    if (isSpeaking) window.speechSynthesis.cancel();
+
     const userMsg: Msg = { role: "user", content: msgText };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -104,13 +151,9 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
       });
 
       if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
 
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
-
-      const reply = data?.reply || "Estoy aquí… ¿puedes intentar de nuevo?";
+      const reply = data?.reply || "¿Puedes intentar de nuevo?";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       speak(reply);
 
@@ -130,63 +173,51 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
 
   const toggleListening = () => {
     if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      toast.error("Tu navegador no soporta reconocimiento de voz. Usa el texto.");
+      toast.error("Puedes activar el micrófono en ajustes del navegador 🌿");
       return;
     }
-
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
       return;
     }
-
     try {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const recognition = new SpeechRecognition();
+      const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognition = new SR();
       recognition.lang = "es-ES";
       recognition.continuous = false;
       recognition.interimResults = false;
-
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
         setIsListening(false);
-        sendMessage(transcript);
+        sendMessage(event.results[0][0].transcript);
       };
-
       recognition.onerror = () => {
         setIsListening(false);
-        toast.error("No se pudo capturar tu voz. Intenta de nuevo.");
+        toast.error("No se capturó tu voz. Verifica permisos del micrófono 🌿");
       };
-
       recognition.onend = () => setIsListening(false);
-
       recognitionRef.current = recognition;
       recognition.start();
       setIsListening(true);
     } catch {
-      toast.error("Error al activar el micrófono. Verifica los permisos.");
+      toast.error("Error al activar el micrófono. Verifica permisos.");
     }
   };
 
   const clearMemory = async () => {
     try {
-      await supabase.functions.invoke("chat-with-ailyn", {
-        body: { action: "clear", username },
-      });
-      setMessages([
-        { role: "assistant", content: `Hemos comenzado de nuevo, ${username}. Estoy aquí. 🌿` },
-      ]);
+      await supabase.functions.invoke("chat-with-ailyn", { body: { action: "clear", username } });
+      setGreetingLoaded(false);
+      setMessages([]);
       localStorage.removeItem("ailyn_history");
-      toast.success("Memoria limpiada");
+      toast.success("Memoria limpiada 🌿");
     } catch {
       toast.error("Error al limpiar la memoria");
     }
   };
 
   const saveConversation = () => {
-    const text = messages
-      .map((m) => `${m.role === "user" ? username : "AILYN"}: ${m.content}`)
-      .join("\n\n");
+    const text = messages.map((m) => `${m.role === "user" ? username : "AILYN"}: ${m.content}`).join("\n\n");
     const blob = new Blob(
       [`🌿 Conversación con AILYN\nFecha: ${new Date().toLocaleDateString("es-ES")}\nUsuario: ${username}\n${"─".repeat(40)}\n\n${text}\n\n${"─".repeat(40)}\nAILYN — Santuario Eterno 🌿`],
       { type: "text/plain;charset=utf-8" }
@@ -194,18 +225,18 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ailyn-conversacion-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `ailyn-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Conversación guardada");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
+
+  // Session counter
+  const sessionCount = JSON.parse(localStorage.getItem("ailyn_history") || "[]").length;
 
   return (
     <motion.div
@@ -227,10 +258,12 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
             className="relative z-20 w-72 h-full border-r border-sanctuary-sage/10 bg-sanctuary-deep/95 backdrop-blur-xl flex flex-col"
           >
             <div className="px-5 py-4 border-b border-sanctuary-sage/10">
-              <h3 className="font-display text-sm font-medium text-sanctuary-bone/80 tracking-wide uppercase">Herramientas</h3>
+              <h3 className="font-display text-sm font-medium text-sanctuary-bone/80 tracking-wide uppercase">Santuario Tools</h3>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+              <ThemeSwitcherUI />
+
               {/* Quick Prompts */}
               <div className="space-y-2">
                 <p className="text-sanctuary-muted text-xs font-medium uppercase tracking-wider">Acciones rápidas</p>
@@ -247,8 +280,17 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 ))}
               </div>
 
-              {/* Mood Tracker */}
               <MoodTracker username={username} />
+
+              {/* Session Progress */}
+              {sessionCount > 0 && (
+                <div className="space-y-1">
+                  <p className="text-sanctuary-muted text-xs font-medium uppercase tracking-wider">Tu progreso</p>
+                  <p className="text-sanctuary-bone/60 text-xs">
+                    Sesiones: {sessionCount} mensaje{sessionCount !== 1 ? "s" : ""} 🌱
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="px-4 py-3 border-t border-sanctuary-sage/10 space-y-2">
@@ -256,7 +298,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 <Download className="w-3.5 h-3.5" /> Guardar conversación
               </Button>
               <Button variant="sanctuary-ghost" size="sm" onClick={clearMemory} className="w-full justify-start gap-2 text-xs">
-                <RotateCcw className="w-3.5 h-3.5" /> Empezar de nuevo
+                <RotateCcw className="w-3.5 h-3.5" /> 🌿 Empezar de nuevo
               </Button>
             </div>
           </motion.aside>
@@ -280,10 +322,8 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 <div className="w-2 h-2 rounded-full bg-sanctuary-sage breathing" />
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-sanctuary-sage/30 animate-ping" />
               </div>
-              <span className="font-display text-lg font-medium text-sanctuary-bone tracking-tight">
-                AILYN
-              </span>
-              <span className="text-[10px] text-sanctuary-muted/50 font-body">4.0</span>
+              <span className="font-display text-lg font-medium text-sanctuary-bone tracking-tight">AILYN</span>
+              <span className="text-[10px] text-sanctuary-muted/50 font-body">5.0</span>
             </div>
             {isSpeaking && <VoiceWave />}
           </div>
@@ -307,7 +347,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-sanctuary-sage/60" />
                   <p className="text-sanctuary-bone/70 text-sm font-body">
-                    ¿Cómo te sientes hoy, {username}? 🌱
+                    ¿Cómo va tu día, {username}? 🌱
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
@@ -315,7 +355,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                     Reflexionar
                   </Button>
                   <Button variant="sanctuary-ghost" size="sm" className="text-xs opacity-60" onClick={dismissCheckin}>
-                    Ahora no
+                    Saltar hoy
                   </Button>
                 </div>
               </div>
@@ -326,6 +366,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6">
           <div className="max-w-2xl mx-auto space-y-1">
+            {messages.length === 0 && !greetingLoaded && <BreathingIndicator />}
             {messages.map((msg, i) => (
               <ChatMessage key={i} role={msg.role} content={msg.content} index={i} />
             ))}
@@ -337,7 +378,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
         <div className="px-5 pt-1">
           <div className="max-w-2xl mx-auto">
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {quickPrompts.slice(0, 3).map((qp, i) => (
+              {quickPrompts.slice(0, 4).map((qp, i) => (
                 <motion.button
                   key={i}
                   onClick={() => sendMessage(qp.message)}
