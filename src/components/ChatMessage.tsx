@@ -22,18 +22,27 @@ const ChatMessage = ({ role, content, index = 0 }: ChatMessageProps) => {
       }}
     >
       {isAilyn ? (
-        <div className="max-w-[80%] border-l-2 border-sanctuary-sage/40 pl-4 py-1">
-          <div className="text-sanctuary-bone/90 text-[15px] leading-relaxed font-body prose prose-invert prose-sm prose-p:my-1">
+        <div className="max-w-[80%] pl-4 py-1"
+          style={{ borderLeft: "2px solid var(--sanctuary-sage)", borderLeftColor: "rgba(var(--particle-color, 168,201,137), 0.4)" }}
+        >
+          <div className="text-[15px] leading-relaxed font-body prose prose-invert prose-sm prose-p:my-1"
+            style={{ color: "var(--sanctuary-bone)", opacity: 0.9 }}
+          >
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         </div>
       ) : (
         <motion.div
-          className="max-w-[80%] bg-sanctuary-moss/60 rounded-2xl px-4 py-3 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.3)]"
+          className="max-w-[80%] rounded-2xl px-4 py-3"
+          style={{
+            background: "var(--sanctuary-moss)",
+            opacity: 0.8,
+            boxShadow: "0 4px 12px -4px rgba(0,0,0,0.3)",
+          }}
           whileHover={{ scale: 1.01 }}
           transition={{ duration: 0.2 }}
         >
-          <p className="text-sanctuary-bone/90 text-[15px] leading-relaxed font-body">
+          <p className="text-[15px] leading-relaxed font-body" style={{ color: "var(--sanctuary-bone)", opacity: 0.9 }}>
             {content}
           </p>
         </motion.div>
