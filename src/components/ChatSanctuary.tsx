@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, RotateCcw, Mic, Volume2, VolumeX, Download, MessageCircle, Sparkles, Palette } from "lucide-react";
+import { ArrowUp, RotateCcw, Mic, Volume2, VolumeX, Download, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ChatMessage from "./ChatMessage";
 import BreathingIndicator from "./BreathingIndicator";
 import LeafParticles from "./LeafParticles";
 import VoiceWave from "./VoiceWave";
-import MoodTracker, { getLastMoodEmoji } from "./MoodTracker";
+import MoodTracker, { getLastMoodEmoji, getCurrentMoodKey } from "./MoodTracker";
 import { ThemeSwitcherUI } from "./ThemeSwitcher";
+import EmotionWheel from "./EmotionWheel";
+import GuidedSessions from "./GuidedSessions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -21,26 +23,25 @@ interface ChatSanctuaryProps {
 const quickPrompts = [
   { label: "Ansioso/a", emoji: "😮‍💨", message: "Estoy sintiéndome ansioso/a y necesito calmarme" },
   { label: "Desahogarme", emoji: "💭", message: "Necesito desahogarme, ¿puedo contarte algo?" },
-  { label: "Respiración 4-7-8", emoji: "🌬️", message: "Guíame en un ejercicio de respiración 4-7-8" },
+  { label: "Respiración", emoji: "🌬️", message: "Guíame en un ejercicio de respiración 4-7-8" },
   { label: "Reflexión", emoji: "🌱", message: "Dame una pequeña reflexión para hoy" },
-  { label: "Pensar en voz alta", emoji: "🧠", message: "Quiero pensar en voz alta sobre algo" },
   { label: "Gratitud", emoji: "🙏", message: "Quiero practicar gratitud rápida" },
-  { label: "Cierre del día", emoji: "🌙", message: "Ayúdame a cerrar mi día con calma" },
+  { label: "Cierre", emoji: "🌙", message: "Ayúdame a cerrar mi día con calma" },
 ];
 
 const placeholders = [
   "Comparte lo que sientes...",
   "Este espacio es tuyo...",
   "¿Qué ronda por tu mente?",
-  "Escríbeme lo que necesites...",
   "Sin juicio, sin prisa...",
   "Aquí puedes soltar todo...",
   "¿Cómo estás realmente?",
   "Tu ritmo, tu espacio...",
   "Cuéntame, sin filtros...",
   "¿Qué necesitas ahora mismo?",
-  "Dime lo que quieras...",
   "Un paso a la vez...",
+  "Dime lo que quieras...",
+  "Respira y escribe...",
 ];
 
 const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
@@ -54,9 +55,15 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [showCheckin, setShowCheckin] = useState(false);
   const [greetingLoaded, setGreetingLoaded] = useState(false);
+  const [currentMood, setCurrentMood] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Init current mood from storage
+  useEffect(() => {
+    setCurrentMood(getCurrentMoodKey(username));
+  }, [username]);
 
   // Fetch dynamic greeting on mount
   useEffect(() => {
@@ -87,28 +94,16 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Rotate placeholder
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIdx((i) => (i + 1) % placeholders.length);
-    }, 4000);
+    const interval = setInterval(() => setPlaceholderIdx((i) => (i + 1) % placeholders.length), 4000);
     return () => clearInterval(interval);
   }, []);
 
   // Daily check-in
   useEffect(() => {
     const lastCheckin = localStorage.getItem("ailyn_checkin_date");
-    if (!lastCheckin) return;
-    const diff = Date.now() - new Date(lastCheckin).getTime();
-    if (diff > 18 * 60 * 60 * 1000) {
-      const timer = setTimeout(() => setShowCheckin(true), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Show check-in if never done
-  useEffect(() => {
-    if (!localStorage.getItem("ailyn_checkin_date")) {
+    const shouldShow = !lastCheckin || (Date.now() - new Date(lastCheckin).getTime() > 18 * 60 * 60 * 1000);
+    if (shouldShow) {
       const timer = setTimeout(() => setShowCheckin(true), 3000);
       return () => clearTimeout(timer);
     }
@@ -136,7 +131,6 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     const msgText = (text || input).trim();
     if (!msgText || isLoading) return;
 
-    // Stop TTS if user sends while speaking
     if (isSpeaking) window.speechSynthesis.cancel();
 
     const userMsg: Msg = { role: "user", content: msgText };
@@ -147,7 +141,11 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
 
     try {
       const { data, error } = await supabase.functions.invoke("chat-with-ailyn", {
-        body: { messages: newMessages, username },
+        body: {
+          messages: newMessages,
+          username,
+          currentMood: currentMood || getCurrentMoodKey(username),
+        },
       });
 
       if (error) throw error;
@@ -157,7 +155,6 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       speak(reply);
 
-      // Save to localStorage
       const saved = JSON.parse(localStorage.getItem("ailyn_history") || "[]");
       if (saved.length > 50) saved.shift();
       saved.push({ date: new Date().toISOString(), user: msgText, ailyn: reply });
@@ -193,14 +190,14 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
       };
       recognition.onerror = () => {
         setIsListening(false);
-        toast.error("No se capturó tu voz. Verifica permisos del micrófono 🌿");
+        toast.error("No se capturó tu voz. Verifica permisos 🌿");
       };
       recognition.onend = () => setIsListening(false);
       recognitionRef.current = recognition;
       recognition.start();
       setIsListening(true);
     } catch {
-      toast.error("Error al activar el micrófono. Verifica permisos.");
+      toast.error("Error al activar el micrófono.");
     }
   };
 
@@ -235,12 +232,12 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  // Session counter
   const sessionCount = JSON.parse(localStorage.getItem("ailyn_history") || "[]").length;
 
   return (
     <motion.div
-      className="fixed inset-0 flex sanctuary-gradient-animated"
+      className="fixed inset-0 flex"
+      style={{ background: "var(--sanctuary-deep)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
@@ -255,10 +252,17 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -280, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-20 w-72 h-full border-r border-sanctuary-sage/10 bg-sanctuary-deep/95 backdrop-blur-xl flex flex-col"
+            className="relative z-20 w-72 h-full flex flex-col backdrop-blur-xl"
+            style={{
+              background: "var(--sanctuary-deep)",
+              borderRight: "1px solid var(--sanctuary-sage)",
+              borderRightColor: "rgba(var(--particle-color, 168,201,137), 0.1)",
+            }}
           >
-            <div className="px-5 py-4 border-b border-sanctuary-sage/10">
-              <h3 className="font-display text-sm font-medium text-sanctuary-bone/80 tracking-wide uppercase">Santuario Tools</h3>
+            <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(var(--particle-color, 168,201,137), 0.1)" }}>
+              <h3 className="font-display text-sm font-medium tracking-wide uppercase" style={{ color: "var(--sanctuary-bone)", opacity: 0.8 }}>
+                Santuario Tools
+              </h3>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
@@ -266,13 +270,21 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
 
               {/* Quick Prompts */}
               <div className="space-y-2">
-                <p className="text-sanctuary-muted text-xs font-medium uppercase tracking-wider">Acciones rápidas</p>
+                <p className="text-[var(--sanctuary-muted)] text-xs font-medium uppercase tracking-wider">Acciones rápidas</p>
                 {quickPrompts.map((qp, i) => (
                   <button
                     key={i}
                     onClick={() => { sendMessage(qp.message); setShowSidebar(false); }}
                     disabled={isLoading}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-sanctuary-moss/30 border border-sanctuary-sage/5 text-sanctuary-bone/70 text-sm font-body hover:bg-sanctuary-moss/50 hover:text-sanctuary-bone hover:border-sanctuary-sage/15 transition-all duration-300 disabled:opacity-40 text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-body transition-all duration-300 disabled:opacity-30 text-left"
+                    style={{
+                      background: "var(--sanctuary-moss)",
+                      color: "var(--sanctuary-bone)",
+                      opacity: 0.7,
+                      border: "1px solid transparent",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.7"; }}
                   >
                     <span className="text-base">{qp.emoji}</span>
                     <span>{qp.label}</span>
@@ -280,20 +292,24 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 ))}
               </div>
 
-              <MoodTracker username={username} />
+              <EmotionWheel onSelect={(msg) => { sendMessage(msg); setShowSidebar(false); }} disabled={isLoading} />
 
-              {/* Session Progress */}
+              <MoodTracker username={username} onMoodChange={(key) => setCurrentMood(key)} />
+
+              <GuidedSessions onSelect={(msg) => { sendMessage(msg); setShowSidebar(false); }} disabled={isLoading} />
+
+              {/* Progress */}
               {sessionCount > 0 && (
                 <div className="space-y-1">
-                  <p className="text-sanctuary-muted text-xs font-medium uppercase tracking-wider">Tu progreso</p>
-                  <p className="text-sanctuary-bone/60 text-xs">
-                    Sesiones: {sessionCount} mensaje{sessionCount !== 1 ? "s" : ""} 🌱
+                  <p className="text-[var(--sanctuary-muted)] text-xs font-medium uppercase tracking-wider">Tu progreso</p>
+                  <p className="text-xs" style={{ color: "var(--sanctuary-bone)", opacity: 0.6 }}>
+                    {sessionCount} mensaje{sessionCount !== 1 ? "s" : ""} este mes 🌱
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="px-4 py-3 border-t border-sanctuary-sage/10 space-y-2">
+            <div className="px-4 py-3 space-y-2" style={{ borderTop: "1px solid rgba(var(--particle-color, 168,201,137), 0.1)" }}>
               <Button variant="sanctuary-ghost" size="sm" onClick={saveConversation} className="w-full justify-start gap-2 text-xs">
                 <Download className="w-3.5 h-3.5" /> Guardar conversación
               </Button>
@@ -308,27 +324,33 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
       {/* Main Chat Area */}
       <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-sanctuary-sage/8 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-5 py-3.5 backdrop-blur-sm"
+          style={{ borderBottom: "1px solid rgba(var(--particle-color, 168,201,137), 0.08)" }}
+        >
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1.5 rounded-lg hover:bg-sanctuary-moss/40 transition-colors"
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: "var(--sanctuary-muted)" }}
               aria-label="Toggle sidebar"
             >
-              <MessageCircle className="w-4.5 h-4.5 text-sanctuary-muted" />
+              <MessageCircle className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-2.5">
               <div className="relative">
-                <div className="w-2 h-2 rounded-full bg-sanctuary-sage breathing" />
-                <div className="absolute inset-0 w-2 h-2 rounded-full bg-sanctuary-sage/30 animate-ping" />
+                <div className="w-2 h-2 rounded-full breathing" style={{ background: "var(--sanctuary-sage)" }} />
+                <div className="absolute inset-0 w-2 h-2 rounded-full animate-ping" style={{ background: "var(--sanctuary-sage)", opacity: 0.3 }} />
               </div>
-              <span className="font-display text-lg font-medium text-sanctuary-bone tracking-tight">AILYN</span>
-              <span className="text-[10px] text-sanctuary-muted/50 font-body">5.0</span>
+              <span className="font-display text-lg font-medium tracking-tight" style={{ color: "var(--sanctuary-bone)" }}>AILYN</span>
+              <span className="text-[10px] font-body" style={{ color: "var(--sanctuary-muted)", opacity: 0.5 }}>6.0</span>
             </div>
             {isSpeaking && <VoiceWave />}
           </div>
           <div className="flex items-center gap-1.5">
-            <Button variant="sanctuary-ghost" size="icon" onClick={() => setTtsEnabled(!ttsEnabled)} className={`h-8 w-8 rounded-lg ${ttsEnabled ? "text-sanctuary-sage bg-sanctuary-sage/10" : ""}`}>
+            <Button variant="sanctuary-ghost" size="icon" onClick={() => setTtsEnabled(!ttsEnabled)}
+              className={`h-8 w-8 rounded-lg ${ttsEnabled ? "text-[var(--sanctuary-sage)]" : ""}`}
+              style={ttsEnabled ? { background: "var(--sanctuary-sage)", opacity: 0.1 } : {}}
+            >
               {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
           </div>
@@ -343,10 +365,15 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
               exit={{ opacity: 0, y: -20, height: 0 }}
               className="mx-5 mt-3"
             >
-              <div className="max-w-2xl mx-auto bg-sanctuary-moss/50 border border-sanctuary-sage/10 rounded-2xl px-4 py-3 backdrop-blur-md flex items-center justify-between gap-3">
+              <div className="max-w-2xl mx-auto rounded-2xl px-4 py-3 backdrop-blur-md flex items-center justify-between gap-3"
+                style={{
+                  background: "var(--sanctuary-moss)",
+                  border: "1px solid rgba(var(--particle-color, 168,201,137), 0.1)",
+                }}
+              >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-sanctuary-sage/60" />
-                  <p className="text-sanctuary-bone/70 text-sm font-body">
+                  <Sparkles className="w-4 h-4" style={{ color: "var(--sanctuary-sage)", opacity: 0.6 }} />
+                  <p className="text-sm font-body" style={{ color: "var(--sanctuary-bone)", opacity: 0.7 }}>
                     ¿Cómo va tu día, {username}? 🌱
                   </p>
                 </div>
@@ -355,7 +382,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                     Reflexionar
                   </Button>
                   <Button variant="sanctuary-ghost" size="sm" className="text-xs opacity-60" onClick={dismissCheckin}>
-                    Saltar hoy
+                    Saltar
                   </Button>
                 </div>
               </div>
@@ -383,7 +410,12 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                   key={i}
                   onClick={() => sendMessage(qp.message)}
                   disabled={isLoading}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sanctuary-moss/25 border border-sanctuary-sage/8 text-sanctuary-muted/60 text-xs font-body hover:bg-sanctuary-moss/40 hover:text-sanctuary-bone/70 hover:border-sanctuary-sage/15 transition-all duration-300 disabled:opacity-30"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all duration-300 disabled:opacity-30"
+                  style={{
+                    background: "var(--sanctuary-moss)",
+                    color: "var(--sanctuary-muted)",
+                    border: "1px solid rgba(var(--particle-color, 168,201,137), 0.08)",
+                  }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -398,7 +430,12 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
         {/* Input */}
         <div className="px-5 pb-5 pt-1">
           <div className="max-w-2xl mx-auto">
-            <div className="flex items-end gap-3 bg-sanctuary-moss/30 border border-sanctuary-sage/8 rounded-2xl px-4 py-3 backdrop-blur-md transition-all duration-500 focus-within:border-sanctuary-sage/25 focus-within:bg-sanctuary-moss/40 focus-within:shadow-[0_0_30px_-12px_rgba(168,201,137,0.15)]">
+            <div className="flex items-end gap-3 rounded-2xl px-4 py-3 backdrop-blur-md transition-all duration-500"
+              style={{
+                background: "var(--sanctuary-moss)",
+                border: "1px solid rgba(var(--particle-color, 168,201,137), 0.08)",
+              }}
+            >
               <textarea
                 ref={inputRef}
                 value={input}
@@ -407,18 +444,21 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 placeholder={isListening ? "🎙️ Escuchando..." : placeholders[placeholderIdx]}
                 rows={1}
                 disabled={isListening}
-                className="flex-1 bg-transparent text-sanctuary-bone placeholder:text-sanctuary-muted/30 resize-none focus:outline-none font-body text-[15px] leading-relaxed max-h-28 disabled:opacity-50 transition-all"
-                style={{ minHeight: "24px" }}
+                className="flex-1 bg-transparent resize-none focus:outline-none font-body text-[15px] leading-relaxed max-h-28 disabled:opacity-50 transition-all"
+                style={{
+                  color: "var(--sanctuary-bone)",
+                  minHeight: "24px",
+                }}
                 aria-label="Escribe tu mensaje"
               />
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={toggleListening}
-                  className={`h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    isListening
-                      ? "bg-sanctuary-sage/20 text-sanctuary-sage ring-2 ring-sanctuary-sage/30 breathing"
-                      : "text-sanctuary-muted/50 hover:text-sanctuary-bone/60 hover:bg-sanctuary-moss/40"
-                  }`}
+                  className="h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300"
+                  style={{
+                    color: isListening ? "var(--sanctuary-sage)" : "var(--sanctuary-muted)",
+                    background: isListening ? "rgba(var(--particle-color, 168,201,137), 0.2)" : "transparent",
+                  }}
                   title="Hablar"
                   aria-label="Activar micrófono"
                 >
@@ -427,14 +467,15 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 <button
                   onClick={() => sendMessage()}
                   disabled={!input.trim() || isLoading}
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-sanctuary-muted/50 hover:text-sanctuary-bone/70 hover:bg-sanctuary-sage/10 transition-all duration-300 disabled:opacity-20 disabled:hover:bg-transparent"
+                  className="h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-20"
+                  style={{ color: "var(--sanctuary-muted)" }}
                   aria-label="Enviar mensaje"
                 >
                   <ArrowUp className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            <p className="text-center text-[10px] text-sanctuary-muted/25 mt-2 font-body">
+            <p className="text-center text-[10px] mt-2 font-body" style={{ color: "var(--sanctuary-muted)", opacity: 0.25 }}>
               AILYN no sustituye atención profesional de salud mental
             </p>
           </div>

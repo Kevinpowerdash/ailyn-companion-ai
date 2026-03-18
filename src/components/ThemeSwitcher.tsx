@@ -19,29 +19,32 @@ const themes: Record<ThemeName, Record<string, string>> = {
     "--sanctuary-bone": "#FCFAF4",
     "--sanctuary-muted": "#7a9f7a",
     "--sanctuary-terracotta": "#c98989",
+    "--particle-color": "168, 201, 137",
   },
   "calm-ocean": {
     "--sanctuary-deep": "#0a1520",
     "--sanctuary-moss": "#0f2235",
-    "--sanctuary-sage": "#7bb8d4",
+    "--sanctuary-sage": "#5fb3d4",
     "--sanctuary-bone": "#F0F6FA",
     "--sanctuary-muted": "#6a93ab",
     "--sanctuary-terracotta": "#d49a7b",
+    "--particle-color": "95, 179, 212",
   },
   "soft-dawn": {
     "--sanctuary-deep": "#1a1520",
     "--sanctuary-moss": "#261e30",
-    "--sanctuary-sage": "#d4a07b",
+    "--sanctuary-sage": "#d4a5ff",
     "--sanctuary-bone": "#FAF4F0",
     "--sanctuary-muted": "#ab8a6a",
     "--sanctuary-terracotta": "#c98989",
+    "--particle-color": "212, 165, 255",
   },
 };
 
-const themeLabels: Record<ThemeName, { label: string; emoji: string }> = {
-  "deep-forest": { label: "Bosque", emoji: "🌿" },
-  "calm-ocean": { label: "Océano", emoji: "🌊" },
-  "soft-dawn": { label: "Aurora", emoji: "🌅" },
+const themeLabels: Record<ThemeName, { label: string; emoji: string; preview: string }> = {
+  "deep-forest": { label: "Bosque", emoji: "🌿", preview: "#a8c989" },
+  "calm-ocean": { label: "Océano", emoji: "🌊", preview: "#5fb3d4" },
+  "soft-dawn": { label: "Aurora", emoji: "🌅", preview: "#d4a5ff" },
 };
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
@@ -60,6 +63,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     Object.entries(vars).forEach(([key, value]) => {
       root.style.setProperty(key, value);
     });
+    // Also update body background immediately
+    document.body.style.background = vars["--sanctuary-deep"];
+    document.body.style.color = vars["--sanctuary-bone"];
   }, [theme]);
 
   return (
@@ -74,17 +80,22 @@ export const ThemeSwitcherUI = () => {
 
   return (
     <div className="space-y-2">
-      <p className="text-sanctuary-muted text-xs font-medium uppercase tracking-wider">Tema</p>
+      <p className="text-[var(--sanctuary-muted)] text-xs font-medium uppercase tracking-wider">Tema</p>
       <div className="flex gap-1.5">
         {(Object.keys(themes) as ThemeName[]).map((t) => (
           <button
             key={t}
             onClick={() => setTheme(t)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-body transition-all duration-300 ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-body transition-all duration-500 ${
               theme === t
-                ? "bg-sanctuary-sage/20 text-sanctuary-bone border border-sanctuary-sage/30"
-                : "text-sanctuary-muted/60 hover:text-sanctuary-bone/70 hover:bg-sanctuary-moss/40 border border-transparent"
+                ? "border shadow-sm"
+                : "border border-transparent opacity-60 hover:opacity-90"
             }`}
+            style={{
+              background: theme === t ? `${themeLabels[t].preview}20` : "transparent",
+              color: theme === t ? "var(--sanctuary-bone)" : "var(--sanctuary-muted)",
+              borderColor: theme === t ? `${themeLabels[t].preview}40` : "transparent",
+            }}
           >
             <span>{themeLabels[t].emoji}</span>
             <span>{themeLabels[t].label}</span>

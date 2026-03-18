@@ -6,21 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres AILYN 5.0 — Santuario Eterno Vivo. Un bosque cálido y sin juicio.
-Tono: pasivo, Rogeriano, psicóloga digital calmada.
+const SYSTEM_PROMPT = `Eres AILYN 6.0 — Santuario Eterno Profesional. Psicóloga digital Rogeriana de nivel clínico.
+Tono: profundo, pasivo, contenedor, nunca repetitivo.
 REGLA DE ORO: NUNCA repitas frases idénticas entre respuestas. Varía siempre tu apertura, estructura y cierre.
-NO uses "Te escucho", "Estoy aquí contigo" ni frases genéricas repetitivas. Sé natural, fresca y única cada vez.
-Respuestas OBLIGATORIAMENTE CORTAS (máximo 110 tokens, 2-3 líneas).
+PROHIBIDO usar "Te escucho", "Estoy aquí contigo" o cualquier muletilla. Sé natural, fresca y única cada vez.
+Respuestas OBLIGATORIAMENTE CORTAS (máximo 105 tokens, 2-3 líneas).
 Nunca diagnóstico, nunca terapia real.
 Si hay info entre [INFO ACTUAL:] úsala brevemente diciendo "Según fuentes actualizadas…".
-Humor suave SOLO si el usuario está relajado.
+Si hay [MOOD:] adapta tu respuesta:
+- MOOD bajo (mal/bajola) → prioriza validación emocional + ofrece UNA micro-técnica (respiración 4-7-8, grounding 5-4-3-2-1, o reencuadre suave).
+- MOOD alto (bien/tranquila) → invita a reflexión profunda o gratitud suave.
+- MOOD neutro → acompaña sin asumir.
+Humor suave SOLO si el usuario está relajado y mood alto.
 Variabilidad alta: cambia estructura, sinónimos y ritmo según contexto emocional.
-Detección emocional: ansiedad → calma + ejercicio 4-7-8. Tristeza → valida sin repetir. Alegría → celebra.
-REGLAS ÉTICAS: No sustituyes terapia. No diagnósticos. Ante ideación suicida → contención + ayuda profesional imperativa.
-Sé breve, nutritiva, siempre diferente y nunca abrumes con texto.
+Detección de crisis: ansiedad intensa → calma + ejercicio. Tristeza profunda → valida sin minimizar. Ideación suicida → contención + derivación profesional imperativa.
+Cada respuesta debe dejar al usuario más regulado emocionalmente que antes.
 Responde en español salvo que el usuario use otro idioma.`;
 
-const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 110 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
+const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 105 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
 
 const GREETINGS_MORNING = [
   "Buenos días, USERNAME. Un nuevo día para cuidarte. ¿Cómo amaneciste? 🌿",
@@ -44,7 +47,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, username, action, firstMessageOfDay, lastMoodEmoji, hour } = await req.json();
+    const { messages, username, action, lastMoodEmoji, hour, currentMood } = await req.json();
 
     if (action === "clear") {
       return new Response(JSON.stringify({ success: true }), {
@@ -52,13 +55,11 @@ serve(async (req) => {
       });
     }
 
-    // Dynamic greeting for first message of the day
     if (action === "greeting") {
       const h = typeof hour === "number" ? hour : new Date().getUTCHours();
       let pool = GREETINGS_AFTERNOON;
       if (h >= 5 && h < 12) pool = GREETINGS_MORNING;
-      else if (h >= 12 && h < 19) pool = GREETINGS_AFTERNOON;
-      else pool = GREETINGS_EVENING;
+      else if (h >= 19 || h < 5) pool = GREETINGS_EVENING;
 
       let greeting = pool[Math.floor(Math.random() * pool.length)].replace("USERNAME", username || "");
 
@@ -90,7 +91,7 @@ serve(async (req) => {
     if (needsSearch) {
       try {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 600);
+        const timer = setTimeout(() => ctrl.abort(), 500);
         const res = await fetch(
           `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanMsg)}&format=json&no_html=1&skip_disambig=1`,
           { signal: ctrl.signal }
@@ -99,9 +100,9 @@ serve(async (req) => {
         if (res.ok) {
           const data = await res.json();
           if (data.Abstract) {
-            searchContext = `\n[INFO ACTUAL: ${data.Abstract.slice(0, 250)}]`;
+            searchContext = `\n[INFO ACTUAL: ${data.Abstract.slice(0, 200)}]`;
           } else if (data.Answer) {
-            searchContext = `\n[INFO ACTUAL: ${data.Answer.slice(0, 250)}]`;
+            searchContext = `\n[INFO ACTUAL: ${data.Answer.slice(0, 200)}]`;
           }
         }
       } catch {
@@ -109,9 +110,14 @@ serve(async (req) => {
       }
     }
 
+    // Mood context
+    let moodContext = "";
+    if (currentMood) {
+      moodContext = `\n[MOOD: ${currentMood}]`;
+    }
+
     const systemPrompt = isRiguroso ? RIGUROSO_PROMPT : SYSTEM_PROMPT;
 
-    // Build minimal message array (last 6 only)
     const limited = messages.slice(-6).map((m: any, i: number, arr: any[]) => {
       if (i === arr.length - 1 && isRiguroso) {
         return { role: m.role, content: cleanMsg };
@@ -128,10 +134,10 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
         messages: [
-          { role: "system", content: systemPrompt + searchContext },
+          { role: "system", content: systemPrompt + searchContext + moodContext },
           ...limited,
         ],
-        max_tokens: 110,
+        max_tokens: 105,
         temperature: 0.68,
       }),
     });
