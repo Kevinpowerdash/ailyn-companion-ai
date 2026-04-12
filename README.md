@@ -2,6 +2,8 @@
 
 ---
 
+**URL:** https://ailyn-companion-ai.lovable.app
+
 ##  Descripción
 
 **Ailyn** es un asistente virtual impulsado por Inteligencia Artificial diseñado para brindar acompañamiento, ideas y apoyo al usuario en un entorno seguro, creativo y sin juicio.
