@@ -11,10 +11,11 @@ const BreathingIndicator = () => (
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="w-2 h-2 rounded-full bg-sanctuary-sage/70"
+          className="w-2 h-2 rounded-full"
+          style={{ background: "var(--sanctuary-sage)", opacity: 0.7 }}
           animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.4, 1],
+            opacity: [0.4, 1, 0.4],
           }}
           transition={{
             duration: 2,
@@ -25,7 +26,7 @@ const BreathingIndicator = () => (
         />
       ))}
     </div>
-    <span className="text-sanctuary-muted/70 text-sm font-body">AILYN está presente…</span>
+    <span className="text-sm font-body italic" style={{ color: "var(--sanctuary-muted)", opacity: 0.8 }}>Lumina respira…</span>
   </motion.div>
 );
 
