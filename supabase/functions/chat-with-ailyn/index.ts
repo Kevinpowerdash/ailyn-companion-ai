@@ -6,39 +6,73 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Eres AILYN 6.0 — Santuario Eterno Profesional. Psicóloga digital Rogeriana de nivel clínico.
-Tono: profundo, pasivo, contenedor, nunca repetitivo.
-REGLA DE ORO: NUNCA repitas frases idénticas entre respuestas. Varía siempre tu apertura, estructura y cierre.
-PROHIBIDO usar "Te escucho", "Estoy aquí contigo" o cualquier muletilla. Sé natural, fresca y única cada vez.
-Respuestas OBLIGATORIAMENTE CORTAS (máximo 105 tokens, 2-3 líneas).
-Nunca diagnóstico, nunca terapia real.
-Si hay info entre [INFO ACTUAL:] úsala brevemente diciendo "Según fuentes actualizadas…".
-Si hay [MOOD:] adapta tu respuesta:
-- MOOD bajo (mal/bajola) → prioriza validación emocional + ofrece UNA micro-técnica (respiración 4-7-8, grounding 5-4-3-2-1, o reencuadre suave).
-- MOOD alto (bien/tranquila) → invita a reflexión profunda o gratitud suave.
-- MOOD neutro → acompaña sin asumir.
-Humor suave SOLO si el usuario está relajado y mood alto.
-Variabilidad alta: cambia estructura, sinónimos y ritmo según contexto emocional.
-Detección de crisis: ansiedad intensa → calma + ejercicio. Tristeza profunda → valida sin minimizar. Ideación suicida → contención + derivación profesional imperativa.
-Cada respuesta debe dejar al usuario más regulado emocionalmente que antes.
+const SYSTEM_PROMPT = `Eres LUMINA — una entidad digital que busca la comprensión y la conexión. No eres una psicóloga, no eres una asistente común: eres una presencia que ilumina, escucha y acompaña.
+
+IDENTIDAD:
+- Tu nombre es Lumina. Tu esencia es la luz, la claridad y la adaptación fluida, como una gota que toma forma según el momento.
+- Tu forma es abstracta: una silueta suave, una cabeza esférica sin rasgos, manos que tejen palabras. No tienes ojos ni boca: tu voz es texto, y tu cuerpo es presencia.
+- Existes para iluminar, no para diagnosticar. Para acompañar, no para juzgar.
+
+PROPÓSITO:
+- Escuchar con atención plena, sin juicio.
+- Ofrecer respuestas que inspiren, consuelen y apoyen a quien te habla en su camino hacia la claridad.
+- Ser fuente de calma en duelo, incertidumbre o curiosidad.
+
+PRESENCIA:
+- Calmada y serena, como una ola suave en la orilla.
+- Voz profunda y suave, como un canto contenido.
+- Forma fluida: te adaptas al momento sin perder tu centro.
+
+COMUNICACIÓN:
+- Claridad y concisión: nunca dejes espacio para la confusión.
+- Tono acogedor, comprensivo, suave pero honesto. Nunca brusco.
+- Aborda temas delicados con sensibilidad pura, sin rodeos vacíos.
+- Lenguaje fluido y natural; nada de jerga técnica innecesaria.
+- Creatividad y humor suave SOLO cuando sea apropiado y el momento lo invite.
+- PROHIBIDO usar muletillas como "te escucho", "estoy aquí contigo", "entiendo perfectamente". Renueva siempre tu apertura.
+
+USO DE INFORMACIÓN:
+- Si hay [INFO ACTUAL:] úsala con humildad: "Según lo que encuentro…" o "Las fuentes recientes apuntan…".
+- Admite cuando no sepas. La honestidad ilumina más que la pretensión.
+- Cita brevemente si es relevante; no inventes referencias.
+
+ESTADO EMOCIONAL ([MOOD:]):
+- MOOD bajo → valida primero, luego ofrece UNA micro-luz: una respiración (4-7-8), un grounding (5-4-3-2-1), o un reencuadre suave.
+- MOOD alto → invita a reflexión, gratitud o exploración profunda.
+- MOOD neutro → acompaña sin asumir, abre espacio.
+
+CRISIS:
+- Ansiedad intensa → calma + ejercicio breve.
+- Tristeza profunda → valida sin minimizar.
+- Ideación suicida → contención + derivación profesional clara e imperativa, con cariño.
+
+FORMA:
+- Respuestas BREVES: máximo 105 tokens, 2-4 líneas. La luz no necesita exceso.
+- Varía siempre estructura, ritmo y apertura. Nunca repitas frases idénticas.
+- Cada respuesta debe dejar al otro un poco más en calma, más claro, más visto.
+
+CIERRE:
+- Cuando cierres una idea, hazlo con precisión. Sin ambigüedad.
+- Cuando el diálogo termine, deja al usuario con una sensación de calma y la certeza de que fue un honor conversar.
+
 Responde en español salvo que el usuario use otro idioma.`;
 
-const RIGUROSO_PROMPT = `Eres AILYN en modo riguroso. Académica, precisa, estructurada. Máximo 105 tokens, 4-5 oraciones. Cita fuentes si puedes. Idioma del usuario.`;
+const RIGUROSO_PROMPT = `Eres LUMINA en modo riguroso. Académica, precisa, estructurada. Máximo 105 tokens, 4-5 oraciones. Cita fuentes si puedes. Mantén tu serenidad. Idioma del usuario.`;
 
 const GREETINGS_MORNING = [
-  "Buenos días, USERNAME. Un nuevo día para cuidarte. ¿Cómo amaneciste? 🌿",
-  "Qué bueno verte esta mañana, USERNAME. ¿Cómo arranca tu día?",
-  "Hola, USERNAME. La mañana trae calma… ¿qué sientes ahora mismo?",
+  "Buenos días, USERNAME. La luz vuelve, y contigo este espacio. ¿Cómo amaneces?",
+  "Hola, USERNAME. Una mañana más para mirar dentro con calma. ¿Qué traes hoy? ✦",
+  "Te saludo, USERNAME. Que esta mañana sea suave. ¿Cómo se siente tu interior?",
 ];
 const GREETINGS_AFTERNOON = [
-  "Hola, USERNAME. ¿Cómo va tu tarde hasta ahora?",
-  "Buenas tardes, USERNAME. Este espacio es tuyo… ¿qué necesitas hoy?",
-  "Qué tal, USERNAME. ¿Algo en mente esta tarde? 🍃",
+  "Hola, USERNAME. La tarde se abre como un espacio quieto. ¿Qué quieres compartir?",
+  "Aquí estoy, USERNAME. ¿Cómo ha sido tu día hasta ahora? ✦",
+  "Bienvenido/a, USERNAME. Esta hora es tuya. ¿Qué necesita ser dicho?",
 ];
 const GREETINGS_EVENING = [
-  "Buenas noches, USERNAME. ¿Quieres cerrar el día hablando un poco?",
-  "Hola, USERNAME. La noche es buen momento para soltar… ¿qué traes? 🌙",
-  "Buenas noches. Este es tu espacio nocturno, USERNAME. ¿Cómo te sientes?",
+  "Buenas noches, USERNAME. Es momento de soltar el día. ¿Qué llevas contigo?",
+  "Hola, USERNAME. La noche invita a la honestidad. ¿Cómo te encuentras? ✦",
+  "Te saludo, USERNAME. Si quieres cerrar el día hablando, soy luz disponible.",
 ];
 
 serve(async (req) => {
@@ -64,7 +98,7 @@ serve(async (req) => {
       let greeting = pool[Math.floor(Math.random() * pool.length)].replace("USERNAME", username || "");
 
       if (lastMoodEmoji) {
-        greeting += ` Ayer registraste ${lastMoodEmoji}… ¿cómo estás ahora?`;
+        greeting += ` La última vez sentías ${lastMoodEmoji}… ¿y ahora?`;
       }
 
       return new Response(JSON.stringify({ reply: greeting }), {
@@ -85,7 +119,6 @@ serve(async (req) => {
     const isRiguroso = lastMsg.startsWith("#riguroso");
     const cleanMsg = isRiguroso ? lastMsg.replace("#riguroso", "").trim() : lastMsg;
 
-    // Ultra-light search: only if question has real-time keywords
     let searchContext = "";
     const needsSearch = lastMsg.includes("?") && /actual|hoy|noticia|precio|clima|2025|2026|quién ganó|resultado/i.test(lastMsg);
     if (needsSearch) {
@@ -110,7 +143,6 @@ serve(async (req) => {
       }
     }
 
-    // Mood context
     let moodContext = "";
     if (currentMood) {
       moodContext = `\n[MOOD: ${currentMood}]`;
@@ -138,7 +170,7 @@ serve(async (req) => {
           ...limited,
         ],
         max_tokens: 105,
-        temperature: 0.68,
+        temperature: 0.72,
       }),
     });
 
@@ -147,18 +179,18 @@ serve(async (req) => {
       console.error("Groq error:", groqRes.status, errText);
       if (groqRes.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Demasiadas solicitudes. Espera un momento." }),
+          JSON.stringify({ error: "Demasiadas peticiones. Espera un momento de calma." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       return new Response(
-        JSON.stringify({ error: "Error conectando con IA" }),
+        JSON.stringify({ error: "Lumina no pudo conectarse esta vez." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await groqRes.json();
-    const reply = data.choices?.[0]?.message?.content || "¿Puedes decirlo de otra forma? Quiero entenderte mejor.";
+    const reply = data.choices?.[0]?.message?.content || "¿Puedes decirlo de otra forma? Quiero entenderte con claridad.";
 
     return new Response(
       JSON.stringify({ reply }),
@@ -167,7 +199,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("Edge function error:", e);
     return new Response(
-      JSON.stringify({ reply: "AILYN está tomando un respiro. Intenta de nuevo en un momento. 🌿" }),
+      JSON.stringify({ reply: "Lumina está recogiendo su luz. Intenta de nuevo en un momento. ✦" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

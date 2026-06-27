@@ -35,14 +35,14 @@ const ChatMessage = ({ role, content, index = 0 }: ChatMessageProps) => {
         <motion.div
           className="max-w-[80%] rounded-2xl px-4 py-3"
           style={{
-            background: "var(--sanctuary-moss)",
-            opacity: 0.8,
-            boxShadow: "0 4px 12px -4px rgba(0,0,0,0.3)",
+            background: "rgba(var(--particle-color, 232,210,160), 0.25)",
+            border: "1px solid rgba(var(--particle-color, 232,210,160), 0.35)",
+            boxShadow: "0 6px 18px -8px rgba(0,0,0,0.12)",
           }}
           whileHover={{ scale: 1.01 }}
           transition={{ duration: 0.2 }}
         >
-          <p className="text-[15px] leading-relaxed font-body" style={{ color: "var(--sanctuary-bone)", opacity: 0.9 }}>
+          <p className="text-[15px] leading-relaxed font-body" style={{ color: "var(--sanctuary-bone)", opacity: 0.95 }}>
             {content}
           </p>
         </motion.div>
