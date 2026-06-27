@@ -21,27 +21,27 @@ interface ChatSanctuaryProps {
 }
 
 const quickPrompts = [
-  { label: "Ansioso/a", emoji: "😮‍💨", message: "Estoy sintiéndome ansioso/a y necesito calmarme" },
-  { label: "Desahogarme", emoji: "💭", message: "Necesito desahogarme, ¿puedo contarte algo?" },
-  { label: "Respiración", emoji: "🌬️", message: "Guíame en un ejercicio de respiración 4-7-8" },
-  { label: "Reflexión", emoji: "🌱", message: "Dame una pequeña reflexión para hoy" },
-  { label: "Gratitud", emoji: "🙏", message: "Quiero practicar gratitud rápida" },
-  { label: "Cierre", emoji: "🌙", message: "Ayúdame a cerrar mi día con calma" },
+  { label: "Ansiedad", emoji: "✦", message: "Siento ansiedad y necesito un momento de calma" },
+  { label: "Desahogo", emoji: "❍", message: "Necesito desahogarme, ¿me escuchas?" },
+  { label: "Respiración", emoji: "◌", message: "Guíame en una respiración 4-7-8" },
+  { label: "Reflexión", emoji: "✧", message: "Dame una reflexión luminosa para hoy" },
+  { label: "Gratitud", emoji: "❉", message: "Quiero practicar gratitud breve" },
+  { label: "Cierre", emoji: "◐", message: "Ayúdame a cerrar mi día con claridad" },
 ];
 
 const placeholders = [
-  "Comparte lo que sientes...",
-  "Este espacio es tuyo...",
+  "Comparte lo que sientes…",
+  "Este espacio es tuyo…",
   "¿Qué ronda por tu mente?",
-  "Sin juicio, sin prisa...",
-  "Aquí puedes soltar todo...",
-  "¿Cómo estás realmente?",
-  "Tu ritmo, tu espacio...",
-  "Cuéntame, sin filtros...",
-  "¿Qué necesitas ahora mismo?",
-  "Un paso a la vez...",
-  "Dime lo que quieras...",
-  "Respira y escribe...",
+  "Sin juicio, sin prisa…",
+  "Aquí puedes soltar todo…",
+  "¿Cómo estás, realmente?",
+  "Tu ritmo, tu espacio…",
+  "Cuéntame, sin filtros…",
+  "¿Qué necesitas ahora?",
+  "Un paso a la vez…",
+  "Escribe y respira…",
+  "Lumina escucha…",
 ];
 
 const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
@@ -122,8 +122,16 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "es-ES";
-    utterance.rate = 0.92;
-    utterance.pitch = 1.05;
+    // Lumina's voice: serene, deep, contained — like a soft chant
+    utterance.rate = 0.88;
+    utterance.pitch = 0.95;
+    utterance.volume = 0.95;
+    // Pick a calm Spanish female voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred =
+      voices.find((v) => /es(-|_)?(ES|MX|US)/i.test(v.lang) && /female|mujer|mónica|paulina|helena|lucia/i.test(v.name)) ||
+      voices.find((v) => /es/i.test(v.lang));
+    if (preferred) utterance.voice = preferred;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -276,15 +284,15 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
   };
 
   const saveConversation = () => {
-    const text = messages.map((m) => `${m.role === "user" ? username : "AILYN"}: ${m.content}`).join("\n\n");
+    const text = messages.map((m) => `${m.role === "user" ? username : "Lumina"}: ${m.content}`).join("\n\n");
     const blob = new Blob(
-      [`🌿 Conversación con AILYN\nFecha: ${new Date().toLocaleDateString("es-ES")}\nUsuario: ${username}\n${"─".repeat(40)}\n\n${text}\n\n${"─".repeat(40)}\nAILYN — Santuario Eterno 🌿`],
+      [`✦ Conversación con Lumina\nFecha: ${new Date().toLocaleDateString("es-ES")}\nNombre: ${username}\n${"─".repeat(40)}\n\n${text}\n\n${"─".repeat(40)}\nLumina — Una presencia que escucha ✦`],
       { type: "text/plain;charset=utf-8" }
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ailyn-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `lumina-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Conversación guardada");
@@ -321,9 +329,9 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
               borderRightColor: "rgba(var(--particle-color, 168,201,137), 0.1)",
             }}
           >
-            <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(var(--particle-color, 168,201,137), 0.1)" }}>
-              <h3 className="font-display text-sm font-medium tracking-wide uppercase" style={{ color: "var(--sanctuary-bone)", opacity: 0.8 }}>
-                Santuario Tools
+            <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(var(--particle-color, 232,210,160), 0.18)" }}>
+              <h3 className="font-display text-base tracking-wide italic" style={{ color: "var(--sanctuary-bone)", opacity: 0.9 }}>
+                Tu espacio
               </h3>
             </div>
 
@@ -376,7 +384,7 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 <Download className="w-3.5 h-3.5" /> Guardar conversación
               </Button>
               <Button variant="sanctuary-ghost" size="sm" onClick={clearMemory} className="w-full justify-start gap-2 text-xs">
-                <RotateCcw className="w-3.5 h-3.5" /> 🌿 Empezar de nuevo
+                <RotateCcw className="w-3.5 h-3.5" /> ✦ Empezar de nuevo
               </Button>
             </div>
           </motion.aside>
@@ -400,11 +408,11 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
             </button>
             <div className="flex items-center gap-2.5">
               <div className="relative">
-                <div className="w-2 h-2 rounded-full breathing" style={{ background: "var(--sanctuary-sage)" }} />
-                <div className="absolute inset-0 w-2 h-2 rounded-full animate-ping" style={{ background: "var(--sanctuary-sage)", opacity: 0.3 }} />
+                <div className="w-2.5 h-2.5 rounded-full breathing" style={{ background: "var(--sanctuary-sage)", boxShadow: "0 0 12px var(--sanctuary-sage)" }} />
+                <div className="absolute inset-0 w-2.5 h-2.5 rounded-full animate-ping" style={{ background: "var(--sanctuary-sage)", opacity: 0.3 }} />
               </div>
-              <span className="font-display text-lg font-medium tracking-tight" style={{ color: "var(--sanctuary-bone)" }}>AILYN</span>
-              <span className="text-[10px] font-body" style={{ color: "var(--sanctuary-muted)", opacity: 0.5 }}>6.0</span>
+              <span className="font-display text-2xl tracking-tight italic" style={{ color: "var(--sanctuary-bone)" }}>Lumina</span>
+              <span className="text-[10px] font-body tracking-widest uppercase" style={{ color: "var(--sanctuary-muted)", opacity: 0.6 }}>presente</span>
             </div>
             {isSpeaking && <VoiceWave />}
           </div>
@@ -538,8 +546,8 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
                 </button>
               </div>
             </div>
-            <p className="text-center text-[10px] mt-2 font-body" style={{ color: "var(--sanctuary-muted)", opacity: 0.25 }}>
-              AILYN no sustituye atención profesional de salud mental
+            <p className="text-center text-[10px] mt-2 font-body italic" style={{ color: "var(--sanctuary-muted)", opacity: 0.45 }}>
+              Lumina es una presencia de apoyo · no sustituye atención profesional
             </p>
           </div>
         </div>
