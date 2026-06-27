@@ -171,36 +171,95 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
     }
   };
 
-  const toggleListening = () => {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      toast.error("Puedes activar el micrófono en ajustes del navegador 🌿");
-      return;
-    }
+  const toggleListening = async () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      // Stop recording
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {}
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
       setIsListening(false);
       return;
     }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Tu navegador no permite usar el micrófono 🌿");
+      return;
+    }
+
     try {
-      const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      const recognition = new SR();
-      recognition.lang = "es-ES";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.onresult = (event: any) => {
-        setIsListening(false);
-        sendMessage(event.results[0][0].transcript);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      // Pick a supported mime type
+      const mimeCandidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+      let mimeType = "";
+      for (const m of mimeCandidates) {
+        if ((window as any).MediaRecorder && MediaRecorder.isTypeSupported(m)) {
+          mimeType = m;
+          break;
+        }
+      }
+
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
       };
-      recognition.onerror = () => {
-        setIsListening(false);
-        toast.error("No se capturó tu voz. Verifica permisos 🌿");
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        audioChunksRef.current = [];
+
+        if (blob.size < 1500) {
+          toast.error("Grabación muy corta. Intenta de nuevo 🌿");
+          return;
+        }
+
+        setIsTranscribing(true);
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              resolve(result.split(",")[1] || "");
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          const { data, error } = await supabase.functions.invoke("voice-to-text", {
+            body: { audio: base64, mimeType: blob.type },
+          });
+
+          if (error) throw error;
+          const text = (data as any)?.text?.trim();
+          if (text) {
+            sendMessage(text);
+          } else {
+            toast.error("No se entendió tu voz, intenta de nuevo 🌿");
+          }
+        } catch (err) {
+          console.error("Transcription error:", err);
+          toast.error("Error al transcribir. Intenta de nuevo 🌿");
+        } finally {
+          setIsTranscribing(false);
+        }
       };
-      recognition.onend = () => setIsListening(false);
-      recognitionRef.current = recognition;
-      recognition.start();
+
+      recorder.start();
       setIsListening(true);
-    } catch {
-      toast.error("Error al activar el micrófono.");
+    } catch (err: any) {
+      console.error("Mic error:", err);
+      if (err?.name === "NotAllowedError") {
+        toast.error("Permiso de micrófono denegado. Habilítalo en el navegador 🌿");
+      } else {
+        toast.error("No se pudo acceder al micrófono 🌿");
+      }
+      setIsListening(false);
     }
   };
 
