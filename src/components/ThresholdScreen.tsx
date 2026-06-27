@@ -14,38 +14,30 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
     >
-      {/* Video background */}
-      <video
-        className="absolute inset-0 w-full h-full object-cover opacity-25"
-        src="/intro.mp4"
-        autoPlay
-        muted
-        loop
-        playsInline
-      />
-
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-sanctuary-deep/60" />
-
-      {/* Floating leaves decoration */}
+      {/* Drifting orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(6)].map((_, i) => (
+        {[...Array(10)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-3 h-3 rounded-full bg-sanctuary-sage/10"
+            className="absolute rounded-full"
+            style={{
+              width: `${6 + Math.random() * 14}px`,
+              height: `${6 + Math.random() * 14}px`,
+              background: "radial-gradient(circle, rgba(232,210,160,0.6) 0%, rgba(232,210,160,0) 70%)",
+              filter: "blur(1px)",
+            }}
             initial={{
-              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
-              y: -20,
+              x: Math.random() * (typeof window !== "undefined" ? window.innerWidth : 800),
+              y: (typeof window !== "undefined" ? window.innerHeight : 800) + 20,
             }}
             animate={{
-              y: (typeof window !== 'undefined' ? window.innerHeight : 800) + 20,
-              x: `+=${Math.random() * 100 - 50}`,
-              rotate: 360,
+              y: -40,
+              x: `+=${Math.random() * 120 - 60}`,
             }}
             transition={{
-              duration: 8 + Math.random() * 6,
+              duration: 10 + Math.random() * 8,
               repeat: Infinity,
-              delay: i * 1.5,
+              delay: i * 1.2,
               ease: "linear",
             }}
           />
@@ -54,25 +46,48 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
 
       {/* Content */}
       <motion.div
-        className="relative z-10 flex flex-col items-center gap-8"
+        className="relative z-10 flex flex-col items-center gap-7 px-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ delay: 0.3, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       >
-        <motion.img
-          src="/logo.png"
-          alt="AILYN"
-          className="w-32 h-32 object-contain"
-          animate={{ opacity: [0.8, 1, 0.8] }}
+        {/* Lumina sigil — a luminous drop */}
+        <motion.div
+          className="relative w-28 h-28 flex items-center justify-center"
+          animate={{ opacity: [0.85, 1, 0.85] }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        />
+        >
+          <div className="absolute inset-0 rounded-full lumina-halo" />
+          <div
+            className="relative w-20 h-20 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 35% 30%, #ffffff 0%, #f5e7c0 40%, #c9a24a 100%)",
+              boxShadow: "inset -4px -6px 12px rgba(120,90,30,0.2), inset 6px 8px 14px rgba(255,255,255,0.6)",
+            }}
+          />
+        </motion.div>
 
-        <h1 className="font-display text-4xl font-medium tracking-tighter text-sanctuary-bone text-center">
-          Un espacio para ser, sin juicio.
-        </h1>
+        <div className="flex flex-col items-center gap-2">
+          <span
+            className="font-display italic text-xs tracking-[0.4em] uppercase opacity-60"
+            style={{ color: "var(--sanctuary-muted)" }}
+          >
+            Soy
+          </span>
+          <h1
+            className="font-display text-6xl md:text-7xl tracking-tight text-center"
+            style={{ color: "var(--sanctuary-bone)" }}
+          >
+            Lumina
+          </h1>
+        </div>
 
-        <p className="text-sanctuary-muted text-lg max-w-md text-center leading-relaxed">
-          Acompañamiento Inteligente Liberador Y Nutritivo
+        <p
+          className="text-lg max-w-md text-center leading-relaxed font-display italic"
+          style={{ color: "var(--sanctuary-muted)" }}
+        >
+          Una presencia que escucha,<br />una luz que acompaña.
         </p>
 
         <motion.div
@@ -84,13 +99,10 @@ const ThresholdScreen = ({ onEnter }: ThresholdScreenProps) => {
             variant="sanctuary-solid"
             size="lg"
             onClick={onEnter}
-            className="mt-4 rounded-full px-10"
+            className="mt-2 rounded-full px-12 sage-glow"
           >
-            <motion.span
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.02 }}
-            >
-              🌿 Entrar
+            <motion.span className="flex items-center gap-2" whileHover={{ scale: 1.02 }}>
+              ✦ Entrar al espacio
             </motion.span>
           </Button>
         </motion.div>
