@@ -2,3 +2,6 @@ project_id = "tkaiuepccvwztkzpbjsr"
 
 [functions.chat-with-ailyn]
 verify_jwt = false
+
+[functions.voice-to-text]
+verify_jwt = false
