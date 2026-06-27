@@ -58,7 +58,10 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
   const [currentMood, setCurrentMood] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Init current mood from storage
   useEffect(() => {
