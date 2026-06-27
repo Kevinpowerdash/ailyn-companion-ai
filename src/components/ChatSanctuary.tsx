@@ -516,15 +516,16 @@ const ChatSanctuary = ({ username, onReset }: ChatSanctuaryProps) => {
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={toggleListening}
-                  className="h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300"
+                  disabled={isTranscribing}
+                  className="h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-40"
                   style={{
                     color: isListening ? "var(--sanctuary-sage)" : "var(--sanctuary-muted)",
                     background: isListening ? "rgba(var(--particle-color, 168,201,137), 0.2)" : "transparent",
                   }}
-                  title="Hablar"
+                  title={isListening ? "Detener grabación" : isTranscribing ? "Transcribiendo..." : "Hablar"}
                   aria-label="Activar micrófono"
                 >
-                  <Mic className="w-4 h-4" />
+                  <Mic className={`w-4 h-4 ${isListening ? "animate-pulse" : ""} ${isTranscribing ? "animate-spin" : ""}`} />
                 </button>
                 <button
                   onClick={() => sendMessage()}
